@@ -1,4 +1,4 @@
-# journey-tracker
+# j3tsetr
 
 A small app to share your travel journey
 
@@ -8,7 +8,7 @@ The DB will be based on PostGreSQL and communication will be done via GraphQL.
 
 - [ ] finish first version of DB Structure with the help of pg migrate
 
-## Backend NodeJS (Backup) - current developing focus
+## Backend NodeJS - current developing focus
 
 If the go service should not run as wished or development takes much longer, I will proceed building the backend in NodeJS
 
@@ -19,10 +19,8 @@ If the go service should not run as wished or development takes much longer, I w
 - [ ] do first retrieval of data
 - [ ] further proceed building the service (edit this task)
 
-## Backend Go (Experimental) - on hold
-
--- My first go service. --
-
 ## Frontend
 
 Frontend will be built in Angular. For statemanagemt (if needed), we will be using NgRx with Signals (Signal Store)
+
+- This project is Node 22 based
