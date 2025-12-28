@@ -1,6 +1,6 @@
-# J3tsetr
+# Jets3trFrontend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.3.9.
+This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 20.3.13.
 
 ## Development server
 

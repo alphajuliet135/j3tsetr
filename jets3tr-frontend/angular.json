@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "j3tsetr": {
+    "jets3tr-frontend": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -18,9 +18,6 @@
           "builder": "@angular/build:application",
           "options": {
             "browser": "src/main.ts",
-            "polyfills": [
-              "zone.js"
-            ],
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "assets": [
@@ -30,6 +27,7 @@
               }
             ],
             "styles": [
+              "src/theme.less",
               "src/styles.scss"
             ]
           },
@@ -61,10 +59,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "j3tsetr:build:production"
+              "buildTarget": "jets3tr-frontend:build:production"
             },
             "development": {
-              "buildTarget": "j3tsetr:build:development"
+              "buildTarget": "jets3tr-frontend:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -75,10 +73,6 @@
         "test": {
           "builder": "@angular/build:karma",
           "options": {
-            "polyfills": [
-              "zone.js",
-              "zone.js/testing"
-            ],
             "tsConfig": "tsconfig.spec.json",
             "inlineStyleLanguage": "scss",
             "assets": [
