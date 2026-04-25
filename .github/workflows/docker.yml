@@ -35,6 +35,15 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
 
+      - name: Determine app version
+        id: app_version
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            echo "value=$GITHUB_REF_NAME" >> $GITHUB_OUTPUT
+          else
+            echo "value=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
@@ -43,6 +52,6 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            APP_VERSION=${{ steps.meta.outputs.version }}
+            APP_VERSION=${{ steps.app_version.outputs.value }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

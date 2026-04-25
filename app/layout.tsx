@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import Providers from "@/components/SessionProvider"
+import ServiceWorkerRegister from "@/components/ServiceWorkerRegister"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -32,7 +33,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
       <body className="bg-[#111111] text-white min-h-screen">
-        <Providers session={session}>{children}</Providers>
+        <Providers session={session}>
+          <ServiceWorkerRegister />
+          {children}
+        </Providers>
       </body>
     </html>
   )

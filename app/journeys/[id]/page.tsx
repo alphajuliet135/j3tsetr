@@ -36,7 +36,7 @@ export default async function JourneyDetailPage({ params }: Props) {
       ) : (
         <div className="space-y-3 mb-6">
           {journey.flights.map((flight) => (
-            <FlightCard key={flight.id} flight={flight} />
+            <FlightCard key={flight.id} flight={flight} journeyId={journey.id} />
           ))}
         </div>
       )}

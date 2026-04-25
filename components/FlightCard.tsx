@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import type { Flight } from "@prisma/client"
 
 const STATUS = {
@@ -73,9 +74,18 @@ function FlightProgressBar({ departure, arrival }: { departure: Date | string; a
   )
 }
 
-export default function FlightCard({ flight }: { flight: Flight }) {
+export default function FlightCard({ flight, journeyId }: { flight: Flight; journeyId?: string }) {
+  const router = useRouter()
   const s = STATUS[(flight.status as StatusKey) ?? "unknown"] ?? STATUS.unknown
   const showProgress = flight.status === "active" || flight.status === "scheduled"
+  const [deleting, setDeleting] = useState(false)
+
+  async function handleDelete() {
+    if (!confirm(`Remove ${flight.flightNumber} from this journey?`)) return
+    setDeleting(true)
+    await fetch(`/api/journeys/${journeyId}/flights/${flight.id}`, { method: "DELETE" })
+    router.refresh()
+  }
 
   return (
     <div className="bg-[#1C1C1E] rounded-2xl p-4 border border-[#2C2C2E]">
@@ -86,9 +96,23 @@ export default function FlightCard({ flight }: { flight: Flight }) {
             <span className="text-gray-500 text-sm">{flight.airline}</span>
           )}
         </div>
-        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${s.text} ${s.bg}`}>
-          {s.label}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${s.text} ${s.bg}`}>
+            {s.label}
+          </span>
+          {journeyId && (
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="text-gray-600 hover:text-red-400 transition disabled:opacity-40"
+              aria-label="Remove flight"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-4">

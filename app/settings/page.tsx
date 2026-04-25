@@ -26,9 +26,12 @@ export default async function SettingsPage() {
           </div>
         </div>
 
-        <p className="text-center text-gray-700 text-xs mt-8">
-          j3tsetr {process.env.NEXT_PUBLIC_APP_VERSION ?? "dev"}
-        </p>
+        <div className="mt-8 text-center">
+          <p className="text-gray-700 text-xs">j3tsetr</p>
+          <p className="text-gray-600 text-xs font-mono mt-0.5">
+            {process.env.NEXT_PUBLIC_APP_VERSION ?? "dev"}
+          </p>
+        </div>
       </main>
       <BottomNav />
     </>
