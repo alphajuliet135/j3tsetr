@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String             @id @default(cuid())
+  username          String             @unique
+  password          String
+  createdAt         DateTime           @default(now())
+  journeys          Journey[]
+  pushSubscriptions PushSubscription[]
+}
+
+model Journey {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  shareToken  String   @unique
+  isShared    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  flights     Flight[]
+}
+
+model Flight {
+  id              String   @id @default(cuid())
+  flightNumber    String
+  airline         String?
+  origin          String
+  destination     String
+  originCity      String?
+  destinationCity String?
+  departureTime   DateTime
+  arrivalTime     DateTime
+  status          String   @default("scheduled")
+  gate            String?
+  terminal        String?
+  delay           Int?
+  aircraft        String?
+  rawData         String?
+  lastUpdated     DateTime @default(now())
+  createdAt       DateTime @default(now())
+  journeyId       String
+  journey         Journey  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}

@@ -1,43 +1,30 @@
-# Node.js
+# Dependencies
 node_modules/
+.pnp
+.pnp.js
+
+# Build output
+.next/
+out/
+dist/
+
+# Env
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+
+# Misc
+.DS_Store
+*.pem
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
-.env
-
-# Angular
-/dist/
-/out-tsc/
-/coverage/
-/.angular/
-/.angular-cache/
+.vercel
 *.tsbuildinfo
-
-# Go
-/bin/
-/obj/
-/vendor/
-/*.exe
-/*.exe~
-/*.dll
-/*.so
-/*.dylib
-*.test
-*.out
-
-# OS generated files
-.DS_Store
-Thumbs.db
-
-# Logs
-logs/
-*.log
-
-# IDEs and editors
-.vscode/
-.idea/
-*.swp
-*.swo
-*.sublime-workspace
-*.sublime-project
+next-env.d.ts
