@@ -14,6 +14,11 @@ export default function JourneyActions({
 }) {
   const router = useRouter()
   const [isShared, setIsShared] = useState(journey.isShared)
+  const [autoDelete, setAutoDelete] = useState(journey.autoDelete)
+  const [isProtected, setIsProtected] = useState(!!journey.sharePassword)
+  const [passwordInput, setPasswordInput] = useState("")
+  const [passwordError, setPasswordError] = useState("")
+  const [passwordSaving, setPasswordSaving] = useState(false)
   const [copied, setCopied] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -27,6 +32,46 @@ export default function JourneyActions({
       setIsShared(!isShared)
       router.refresh()
     }
+  }
+
+  async function toggleAutoDelete() {
+    const next = !autoDelete
+    const res = await fetch(`/api/journeys/${journey.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ autoDelete: next }),
+    })
+    if (res.ok) setAutoDelete(next)
+  }
+
+  async function savePassword(e: React.FormEvent) {
+    e.preventDefault()
+    setPasswordError("")
+    setPasswordSaving(true)
+    const res = await fetch(`/api/journeys/${journey.id}/share-password`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: passwordInput }),
+    })
+    const data = await res.json()
+    setPasswordSaving(false)
+    if (res.ok) {
+      setIsProtected(data.protected)
+      setPasswordInput("")
+    } else {
+      setPasswordError(data.error ?? "Failed to save")
+    }
+  }
+
+  async function removePassword() {
+    setPasswordSaving(true)
+    const res = await fetch(`/api/journeys/${journey.id}/share-password`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: null }),
+    })
+    setPasswordSaving(false)
+    if (res.ok) setIsProtected(false)
   }
 
   async function copyShareUrl() {
@@ -74,6 +119,7 @@ export default function JourneyActions({
       </div>
 
       <div className="bg-[#1C1C1E] rounded-2xl p-4 border border-[#2C2C2E] space-y-3">
+        {/* Share toggle */}
         <div className="flex items-center justify-between">
           <div>
             <p className="text-white text-sm font-medium">Share Journey</p>
@@ -81,22 +127,19 @@ export default function JourneyActions({
           </div>
           <button
             onClick={toggleShare}
-            className={`relative w-12 h-6 rounded-full transition-colors ${
-              isShared ? "bg-blue-600" : "bg-gray-700"
-            }`}
+            className={`relative w-12 h-6 rounded-full transition-colors ${isShared ? "bg-blue-600" : "bg-gray-700"}`}
             role="switch"
             aria-checked={isShared}
           >
             <span
-              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                isShared ? "translate-x-6" : "translate-x-0"
-              }`}
+              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${isShared ? "translate-x-6" : "translate-x-0"}`}
             />
           </button>
         </div>
 
         {isShared && (
-          <div className="pt-2 border-t border-[#2C2C2E]">
+          <div className="pt-2 border-t border-[#2C2C2E] space-y-3">
+            {/* Share URL */}
             <div className="flex items-center gap-2">
               <p className="text-gray-500 text-xs truncate flex-1 font-mono">{shareUrl}</p>
               <button
@@ -106,8 +149,77 @@ export default function JourneyActions({
                 {copied ? "Copied!" : "Copy"}
               </button>
             </div>
+
+            {/* Password protection */}
+            <div className="pt-2 border-t border-[#2C2C2E]">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <p className="text-white text-sm font-medium">
+                    Password protect
+                    {isProtected && (
+                      <span className="ml-2 text-xs font-normal text-green-400">Active</span>
+                    )}
+                  </p>
+                </div>
+                {isProtected && (
+                  <button
+                    onClick={removePassword}
+                    disabled={passwordSaving}
+                    className="text-red-400 hover:text-red-300 text-xs transition disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+
+              {!isProtected ? (
+                <form onSubmit={savePassword} className="flex gap-2">
+                  <input
+                    type="password"
+                    placeholder="Set a password…"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    minLength={4}
+                    required
+                    className="flex-1 bg-[#111111] border border-[#3A3A3C] rounded-xl px-3 py-2 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm transition"
+                  />
+                  <button
+                    type="submit"
+                    disabled={passwordSaving}
+                    className="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-3 py-2 text-sm font-medium transition disabled:opacity-50"
+                  >
+                    {passwordSaving ? "…" : "Set"}
+                  </button>
+                </form>
+              ) : (
+                <p className="text-gray-500 text-xs">Viewers must enter a password to see this journey.</p>
+              )}
+
+              {passwordError && <p className="text-red-400 text-xs mt-1">{passwordError}</p>}
+            </div>
           </div>
         )}
+
+        {/* Auto-delete toggle */}
+        <div className="flex items-center justify-between pt-3 border-t border-[#2C2C2E]">
+          <div>
+            <p className="text-white text-sm font-medium">Auto-delete when complete</p>
+            <p className="text-gray-500 text-xs mt-0.5">Delete journey once all flights have landed</p>
+          </div>
+          <button
+            onClick={toggleAutoDelete}
+            className={`relative w-12 h-6 rounded-full transition-colors ${autoDelete ? "bg-blue-600" : "bg-gray-700"}`}
+            role="switch"
+            aria-checked={autoDelete}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${autoDelete ? "translate-x-6" : "translate-x-0"}`}
+            />
+          </button>
+        </div>
       </div>
     </div>
   )

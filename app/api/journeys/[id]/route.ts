@@ -25,7 +25,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
   const { id } = await params
   const body = await req.json()
-  const { name, description, isShared } = body
+  const { name, description, isShared, autoDelete } = body
 
   const journey = await prisma.journey.findFirst({
     where: { id, userId: session.user.id },
@@ -38,6 +38,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       ...(typeof name === "string" ? { name: name.trim() } : {}),
       ...(description !== undefined ? { description: description?.trim() || null } : {}),
       ...(typeof isShared === "boolean" ? { isShared } : {}),
+      ...(typeof autoDelete === "boolean" ? { autoDelete } : {}),
     },
   })
 
