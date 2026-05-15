@@ -86,10 +86,75 @@ function FlightProgressBar({ departure, arrival }: { departure: Date | string; a
   )
 }
 
+const TERMINAL_STATUSES = new Set(["landed", "cancelled", "diverted"])
+
+function DepartureCountdown({ departure }: { departure: Date | string }) {
+  const [label, setLabel] = useState<string | null>(null)
+
+  useEffect(() => {
+    function calc() {
+      const diff = new Date(departure).getTime() - Date.now()
+      if (diff <= 0) return null
+      const days = Math.floor(diff / 86_400_000)
+      const hours = Math.floor((diff % 86_400_000) / 3_600_000)
+      const mins = Math.floor((diff % 3_600_000) / 60_000)
+      if (days > 0) return `${days}d ${hours}h ${mins}m`
+      if (hours > 0) return `${hours}h ${mins}m`
+      return `${mins}m`
+    }
+    setLabel(calc())
+    const id = setInterval(() => setLabel(calc()), 60_000)
+    return () => clearInterval(id)
+  }, [departure])
+
+  return (
+    <>
+      <div className="flex w-full items-center gap-1.5">
+        <div className="flex-1 h-px bg-[#3A3A3C]" />
+        <svg className="w-5 h-5 text-gray-500 shrink-0 rotate-90" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z" />
+        </svg>
+        <div className="flex-1 h-px bg-[#3A3A3C]" />
+      </div>
+      <p className="text-gray-600 text-xs">{fmtDate(departure)}</p>
+      {label && (
+        <p className="text-gray-400 text-[10px] font-medium tabular-nums">Departs in {label}</p>
+      )}
+    </>
+  )
+}
+
+function deriveStatus(status: string, departureTime: Date | string, arrivalTime: Date | string): string {
+  if (TERMINAL_STATUSES.has(status) || status === "cancelled") return status
+  const now = Date.now()
+  if (now >= new Date(arrivalTime).getTime()) return "landed"
+  if (now >= new Date(departureTime).getTime()) return "active"
+  return status
+}
+
 export default function FlightCard({ flight, journeyId }: { flight: Flight; journeyId?: string }) {
   const router = useRouter()
-  const s = STATUS[(flight.status as StatusKey) ?? "unknown"] ?? STATUS.unknown
-  const showProgress = flight.status === "active" || flight.status === "scheduled"
+  const derived = deriveStatus(flight.status, flight.departureTime, flight.arrivalTime)
+  const s = STATUS[(derived as StatusKey) ?? "unknown"] ?? STATUS.unknown
+
+  useEffect(() => {
+    if (!journeyId || TERMINAL_STATUSES.has(flight.status)) return
+
+    async function refresh() {
+      try {
+        const res = await fetch(
+          `/api/journeys/${journeyId}/flights/${flight.id}/refresh`,
+          { method: "POST" }
+        )
+        if (res.ok) router.refresh()
+      } catch { /* ignore network errors */ }
+    }
+
+    refresh() // immediately on mount to catch stale data
+    const id = setInterval(refresh, 180_000)
+    return () => clearInterval(id)
+  }, [flight.id, flight.status, journeyId])
+  const showProgress = derived === "active"
   const [deleting, setDeleting] = useState(false)
 
   async function handleDelete() {
@@ -130,15 +195,24 @@ export default function FlightCard({ flight, journeyId }: { flight: Flight; jour
       <div className="flex items-center gap-4">
         <div className="text-center shrink-0">
           <p className="text-2xl font-bold text-white leading-tight">{flight.origin}</p>
-          <p className="text-gray-400 text-sm font-mono">{fmt(flight.departureTime)}</p>
+          {derived === "landed" && flight.delay ? (
+            <>
+              <p className="text-gray-600 text-xs font-mono line-through">{fmt(flight.departureTime)}</p>
+              <p className="text-gray-400 text-sm font-mono">{fmt(new Date(new Date(flight.departureTime).getTime() + flight.delay * 60_000))}</p>
+            </>
+          ) : (
+            <p className="text-gray-400 text-sm font-mono">{fmt(flight.departureTime)}</p>
+          )}
           {flight.originCity && (
             <p className="text-gray-600 text-xs truncate max-w-[70px]">{flight.originCity}</p>
           )}
         </div>
 
         <div className="flex-1 flex flex-col items-center gap-1 min-w-0">
-          {showProgress ? (
+          {derived === "active" ? (
             <FlightProgressBar departure={flight.departureTime} arrival={flight.arrivalTime} />
+          ) : derived === "scheduled" ? (
+            <DepartureCountdown departure={flight.departureTime} />
           ) : (
             <>
               <div className="flex w-full items-center gap-1.5">
@@ -153,16 +227,30 @@ export default function FlightCard({ flight, journeyId }: { flight: Flight; jour
                 <div className="flex-1 h-px bg-[#3A3A3C]" />
               </div>
               <p className="text-gray-600 text-xs">{fmtDate(flight.departureTime)}</p>
+              {derived === "landed" && (
+                flight.delay && flight.delay > 0
+                  ? <p className="text-red-400 text-[10px] font-medium">+{flight.delay} min late</p>
+                  : flight.delay && flight.delay < 0
+                    ? <p className="text-green-400 text-[10px] font-medium">{Math.abs(flight.delay)} min early</p>
+                    : <p className="text-gray-500 text-[10px] font-medium">Landed on time</p>
+              )}
             </>
           )}
-          {flight.delay && flight.delay > 0 && (
+          {derived !== "landed" && flight.delay && flight.delay > 0 && (
             <p className="text-amber-400 text-xs font-medium">+{flight.delay}m</p>
           )}
         </div>
 
         <div className="text-center shrink-0">
           <p className="text-2xl font-bold text-white leading-tight">{flight.destination}</p>
-          <p className="text-gray-400 text-sm font-mono">{fmt(flight.arrivalTime)}</p>
+          {derived === "landed" && flight.delay ? (
+            <>
+              <p className="text-gray-600 text-xs font-mono line-through">{fmt(flight.arrivalTime)}</p>
+              <p className="text-gray-400 text-sm font-mono">{fmt(new Date(new Date(flight.arrivalTime).getTime() + flight.delay * 60_000))}</p>
+            </>
+          ) : (
+            <p className="text-gray-400 text-sm font-mono">{fmt(flight.arrivalTime)}</p>
+          )}
           {flight.destinationCity && (
             <p className="text-gray-600 text-xs truncate max-w-[70px]">{flight.destinationCity}</p>
           )}

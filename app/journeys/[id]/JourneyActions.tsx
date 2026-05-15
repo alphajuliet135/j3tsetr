@@ -21,6 +21,7 @@ export default function JourneyActions({
   const [passwordSaving, setPasswordSaving] = useState(false)
   const [copied, setCopied] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [editing, setEditing] = useState(false)
   const [nameInput, setNameInput] = useState(journey.name)
   const [descInput, setDescInput] = useState(journey.description ?? "")
@@ -101,7 +102,6 @@ export default function JourneyActions({
   }
 
   async function handleDelete() {
-    if (!confirm(`Delete "${journey.name}"? This cannot be undone.`)) return
     setDeleting(true)
     const res = await fetch(`/api/journeys/${journey.id}`, { method: "DELETE" })
     if (res.ok) {
@@ -136,7 +136,7 @@ export default function JourneyActions({
             </svg>
           </button>
           <button
-            onClick={handleDelete}
+            onClick={() => setConfirmingDelete(true)}
             disabled={deleting}
             className="text-gray-600 hover:text-red-400 transition disabled:opacity-40 shrink-0"
             aria-label="Delete journey"
@@ -250,6 +250,33 @@ export default function JourneyActions({
           </button>
         </div>
       </div>
+
+      {confirmingDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-[#1C1C1E] rounded-2xl p-5 border border-[#2C2C2E] shadow-xl">
+            <h2 className="text-white font-semibold text-base mb-1">Delete journey?</h2>
+            <p className="text-gray-400 text-sm mb-5">
+              <span className="text-white font-medium">{journey.name}</span> and all its flights will be permanently deleted.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 bg-red-600 hover:bg-red-500 text-white rounded-xl py-2.5 text-sm font-semibold transition disabled:opacity-50"
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+              <button
+                onClick={() => setConfirmingDelete(false)}
+                disabled={deleting}
+                className="flex-1 bg-[#2C2C2E] hover:bg-[#3A3A3C] text-gray-300 rounded-xl py-2.5 text-sm font-semibold transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {editing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">

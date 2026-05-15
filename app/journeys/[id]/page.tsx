@@ -4,7 +4,6 @@ import { prisma } from "@/lib/db"
 import { notFound, redirect } from "next/navigation"
 import FlightCard from "@/components/FlightCard"
 import BreakCard from "@/components/BreakCard"
-import JourneyCountdown from "@/components/JourneyCountdown"
 import JourneyActions from "./JourneyActions"
 import AddFlightForm from "./AddFlightForm"
 import AddBreakForm from "./AddBreakForm"
@@ -41,12 +40,6 @@ export default async function JourneyDetailPage({ params }: Props) {
 
   const shareUrl = `${process.env.NEXTAUTH_URL ?? ""}/j/${journey.shareToken}`
 
-  // Next upcoming flight (not cancelled, not yet departed)
-  const now = new Date()
-  const nextFlight = journey.flights.find(
-    (f) => !TERMINAL_STATUSES.has(f.status) && new Date(f.departureTime) > now
-  )
-
   // Interleave flights and breaks sorted by time
   type TimelineItem =
     | { type: "flight"; sortKey: number; data: (typeof journey.flights)[number] }
@@ -68,13 +61,6 @@ export default async function JourneyDetailPage({ params }: Props) {
   return (
     <div className="px-4 pt-6 pb-20">
       <JourneyActions journey={journey} shareUrl={shareUrl} />
-
-      {nextFlight && (
-        <JourneyCountdown
-          nextDeparture={nextFlight.departureTime.toISOString()}
-          flightNumber={nextFlight.flightNumber}
-        />
-      )}
 
       {timeline.length === 0 ? (
         <div className="text-center py-10">
