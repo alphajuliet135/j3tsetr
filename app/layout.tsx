@@ -28,11 +28,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const session = await getServerSession(authOptions)
 
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
-      <body className="bg-[#111111] text-white min-h-screen">
+      <body className="bg-[#111111] text-white min-h-screen" suppressHydrationWarning>
         <Providers session={session}>
           <ServiceWorkerRegister />
           {children}

@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { requireUser } from "@/lib/session"
 import { prisma } from "@/lib/db"
 import { nanoid } from "nanoid"
 
 export async function GET() {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const user = await requireUser()
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const journeys = await prisma.journey.findMany({
-    where: { userId: session.user.id },
+    where: { userId: user.id },
     include: { _count: { select: { flights: true } } },
     orderBy: { updatedAt: "desc" },
   })
@@ -18,8 +17,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const user = await requireUser()
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const body = await req.json()
   const { name, description } = body
@@ -33,7 +32,7 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       description: description?.trim() || null,
       shareToken: nanoid(12),
-      userId: session.user.id,
+      userId: user.id,
     },
   })
 

@@ -42,9 +42,10 @@ function flightProgress(departure: Date | string, arrival: Date | string): numbe
 type StatusKey = keyof typeof STATUS
 
 function FlightProgressBar({ departure, arrival }: { departure: Date | string; arrival: Date | string }) {
-  const [pct, setPct] = useState(() => flightProgress(departure, arrival))
+  const [pct, setPct] = useState(0)
 
   useEffect(() => {
+    setPct(flightProgress(departure, arrival))
     const id = setInterval(() => setPct(flightProgress(departure, arrival)), 30_000)
     return () => clearInterval(id)
   }, [departure, arrival])

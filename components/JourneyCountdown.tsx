@@ -24,9 +24,10 @@ export default function JourneyCountdown({
   flightNumber: string
 }) {
   const target = new Date(nextDeparture)
-  const [label, setLabel] = useState(() => calcCountdown(target))
+  const [label, setLabel] = useState<string | null>(null)
 
   useEffect(() => {
+    setLabel(calcCountdown(target))
     const id = setInterval(() => {
       const next = calcCountdown(target)
       setLabel(next)
