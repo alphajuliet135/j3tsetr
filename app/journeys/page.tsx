@@ -35,7 +35,7 @@ export default async function JourneysPage() {
           <p className="text-gray-600 text-sm">Create one to start tracking flights</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {journeys.map((journey) => (
             <JourneyCard key={journey.id} journey={journey} />
           ))}
