@@ -28,7 +28,7 @@ export default function BreakCard({
     if (!confirm(`Remove "${stayBreak.title}"?`)) return
     setDeleting(true)
     await fetch(`/api/journeys/${journeyId}/breaks/${stayBreak.id}`, { method: "DELETE" })
-    router.refresh()
+    window.location.reload()
   }
 
   return (

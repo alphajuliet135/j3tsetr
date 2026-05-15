@@ -3,7 +3,9 @@ import { hash } from "bcryptjs"
 import { prisma } from "@/lib/db"
 
 export async function POST(req: NextRequest) {
-  if (process.env.ALLOW_REGISTRATION === "false") {
+  const setting = await prisma.appSetting.findUnique({ where: { key: "allowRegistration" } })
+  const allowed = setting ? setting.value === "true" : process.env.ALLOW_REGISTRATION !== "false"
+  if (!allowed) {
     return NextResponse.json({ error: "Registration is disabled" }, { status: 403 })
   }
 

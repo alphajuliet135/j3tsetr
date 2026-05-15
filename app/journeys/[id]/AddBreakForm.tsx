@@ -34,9 +34,7 @@ export default function AddBreakForm({ journeyId }: { journeyId: string }) {
 
     setSaving(false)
     if (res.ok) {
-      setOpen(false)
-      setForm({ title: "", location: "", startDate: "", endDate: "", notes: "" })
-      router.refresh()
+      window.location.reload()
     } else {
       const data = await res.json()
       setError(data.error ?? "Failed to save")

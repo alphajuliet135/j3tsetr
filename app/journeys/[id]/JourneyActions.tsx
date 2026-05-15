@@ -26,6 +26,7 @@ export default function JourneyActions({
   const [nameInput, setNameInput] = useState(journey.name)
   const [descInput, setDescInput] = useState(journey.description ?? "")
   const [editSaving, setEditSaving] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   async function saveEdit(e: React.FormEvent) {
     e.preventDefault()
@@ -147,7 +148,23 @@ export default function JourneyActions({
           </button>
       </div>
 
-      <div className="bg-[#1C1C1E] rounded-2xl p-4 border border-[#2C2C2E] space-y-3">
+      <div className="bg-[#1C1C1E] rounded-2xl border border-[#2C2C2E]">
+        <button
+          onClick={() => setSettingsOpen((o) => !o)}
+          className="w-full flex items-center justify-between px-4 py-3 text-gray-400 hover:text-gray-200 transition"
+        >
+          <span className="text-sm font-medium">Journey Settings</span>
+          <svg
+            style={{ transform: settingsOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}
+            className="w-4 h-4"
+            fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+      {settingsOpen && (
+      <div className="px-4 pb-5 space-y-3 border-t border-[#2C2C2E] pt-3">
         {/* Share toggle */}
         <div className="flex items-center justify-between">
           <div>
@@ -249,6 +266,8 @@ export default function JourneyActions({
             />
           </button>
         </div>
+      </div>
+      )}
       </div>
 
       {confirmingDelete && (

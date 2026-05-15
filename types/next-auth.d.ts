@@ -1,3 +1,5 @@
+declare module "airports"
+
 import "next-auth"
 import "next-auth/jwt"
 

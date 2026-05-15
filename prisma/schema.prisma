@@ -66,6 +66,11 @@ model Flight {
   journey         Journey  @relation(fields: [journeyId], references: [id], onDelete: Cascade)
 }
 
+model AppSetting {
+  key   String @id
+  value String
+}
+
 model PushSubscription {
   id        String   @id @default(cuid())
   endpoint  String   @unique

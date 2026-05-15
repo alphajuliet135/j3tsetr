@@ -136,11 +136,14 @@ function deriveStatus(status: string, departureTime: Date | string, arrivalTime:
 
 export default function FlightCard({ flight, journeyId }: { flight: Flight; journeyId?: string }) {
   const router = useRouter()
-  const derived = deriveStatus(flight.status, flight.departureTime, flight.arrivalTime)
+  const [liveStatus, setLiveStatus] = useState(flight.status)
+  const [liveDelay, setLiveDelay] = useState(flight.delay)
+
+  const derived = deriveStatus(liveStatus, flight.departureTime, flight.arrivalTime)
   const s = STATUS[(derived as StatusKey) ?? "unknown"] ?? STATUS.unknown
 
   useEffect(() => {
-    if (!journeyId || TERMINAL_STATUSES.has(flight.status)) return
+    if (!journeyId || TERMINAL_STATUSES.has(liveStatus)) return
 
     async function refresh() {
       try {
@@ -148,28 +151,37 @@ export default function FlightCard({ flight, journeyId }: { flight: Flight; jour
           `/api/journeys/${journeyId}/flights/${flight.id}/refresh`,
           { method: "POST" }
         )
-        if (res.ok) router.refresh()
+        if (res.ok) {
+          const data = await res.json()
+          setLiveStatus(data.status)
+          setLiveDelay(data.delay)
+        }
       } catch { /* ignore network errors */ }
     }
 
-    refresh() // immediately on mount to catch stale data
+    refresh()
     const id = setInterval(refresh, 180_000)
     return () => clearInterval(id)
-  }, [flight.id, flight.status, journeyId])
+  }, [flight.id, liveStatus, journeyId])
+
   const showProgress = derived === "active"
-  const actualDep = flight.delay ? new Date(new Date(flight.departureTime).getTime() + flight.delay * 60_000) : null
-  const actualArr = flight.delay ? new Date(new Date(flight.arrivalTime).getTime() + flight.delay * 60_000) : null
+  const actualDep = liveDelay ? new Date(new Date(flight.departureTime).getTime() + liveDelay * 60_000) : null
+  const actualArr = liveDelay ? new Date(new Date(flight.arrivalTime).getTime() + liveDelay * 60_000) : null
   const aircraftReg: string | null = (() => {
     try { return flight.rawData ? (JSON.parse(flight.rawData) as { aircraft?: { registration?: string } }).aircraft?.registration ?? null : null }
     catch { return null }
   })()
   const [deleting, setDeleting] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   async function handleDelete() {
-    if (!confirm(`Remove ${flight.flightNumber} from this journey?`)) return
     setDeleting(true)
-    await fetch(`/api/journeys/${journeyId}/flights/${flight.id}`, { method: "DELETE" })
-    router.refresh()
+    const res = await fetch(`/api/journeys/${journeyId}/flights/${flight.id}`, { method: "DELETE" })
+    if (res.ok) {
+      window.location.reload()
+    } else {
+      setDeleting(false)
+    }
   }
 
   return (
@@ -187,7 +199,7 @@ export default function FlightCard({ flight, journeyId }: { flight: Flight; jour
           </span>
           {journeyId && (
             <button
-              onClick={handleDelete}
+              onClick={() => setConfirmingDelete(true)}
               disabled={deleting}
               className="text-gray-600 hover:text-red-400 transition disabled:opacity-40"
               aria-label="Remove flight"
@@ -236,16 +248,16 @@ export default function FlightCard({ flight, journeyId }: { flight: Flight; jour
               </div>
               <p className="text-gray-600 text-xs">{fmtDate(flight.departureTime)}</p>
               {derived === "landed" && (
-                flight.delay && flight.delay > 0
-                  ? <p className="text-red-400 text-[10px] font-medium">+{flight.delay} min late</p>
-                  : flight.delay && flight.delay < 0
-                    ? <p className="text-green-400 text-[10px] font-medium">{Math.abs(flight.delay)} min early</p>
+                liveDelay && liveDelay > 0
+                  ? <p className="text-red-400 text-[10px] font-medium">+{liveDelay} min late</p>
+                  : liveDelay && liveDelay < 0
+                    ? <p className="text-green-400 text-[10px] font-medium">{Math.abs(liveDelay)} min early</p>
                     : <p className="text-gray-500 text-[10px] font-medium">Landed on time</p>
               )}
             </>
           )}
-          {derived !== "landed" && flight.delay && flight.delay > 0 && (
-            <p className="text-amber-400 text-xs font-medium">+{flight.delay}m</p>
+          {derived !== "landed" && liveDelay && liveDelay > 0 && (
+            <p className="text-amber-400 text-xs font-medium">+{liveDelay}m</p>
           )}
         </div>
 
@@ -301,6 +313,33 @@ export default function FlightCard({ flight, journeyId }: { flight: Flight; jour
         </div>
       )}
 
+      {confirmingDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-[#1C1C1E] rounded-2xl p-5 border border-[#2C2C2E] shadow-xl">
+            <h2 className="text-white font-semibold text-base mb-1">Remove flight?</h2>
+            <p className="text-gray-400 text-sm mb-5">
+              <span className="text-white font-medium">{flight.flightNumber}</span>
+              {flight.airline ? ` · ${flight.airline}` : ""} will be removed from this journey.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 bg-red-600 hover:bg-red-500 text-white rounded-xl py-2.5 text-sm font-semibold transition disabled:opacity-50"
+              >
+                {deleting ? "Removing…" : "Remove"}
+              </button>
+              <button
+                onClick={() => setConfirmingDelete(false)}
+                disabled={deleting}
+                className="flex-1 bg-[#2C2C2E] hover:bg-[#3A3A3C] text-gray-300 rounded-xl py-2.5 text-sm font-semibold transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
