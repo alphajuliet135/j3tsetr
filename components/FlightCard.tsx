@@ -52,7 +52,9 @@ function FlightProgressBar({ departure, arrival }: { departure: Date | string; a
       if (diff > 0) {
         const h = Math.floor(diff / 3_600_000)
         const m = Math.floor((diff % 3_600_000) / 60_000)
-        setTimeLeft(h > 0 ? `${h}h ${m}m` : `${m}m`)
+        const hPart = h > 0 ? `${h} ${h === 1 ? "hour" : "hours"}` : ""
+        const mPart = `${m} ${m === 1 ? "minute" : "minutes"}`
+        setTimeLeft(`${hPart ? `${hPart} ` : ""}${mPart} left`)
       } else {
         setTimeLeft(null)
       }
@@ -86,17 +88,100 @@ function FlightProgressBar({ departure, arrival }: { departure: Date | string; a
   )
 }
 
+const TERMINAL_STATUSES = new Set(["landed", "cancelled", "diverted"])
+
+function DepartureCountdown({ departure }: { departure: Date | string }) {
+  const [label, setLabel] = useState<string | null>(null)
+
+  useEffect(() => {
+    function calc() {
+      const diff = new Date(departure).getTime() - Date.now()
+      if (diff <= 0) return null
+      const days = Math.floor(diff / 86_400_000)
+      const hours = Math.floor((diff % 86_400_000) / 3_600_000)
+      const mins = Math.floor((diff % 3_600_000) / 60_000)
+      if (days > 0) return `${days}d ${hours}h ${mins}m`
+      if (hours > 0) return `${hours}h ${mins}m`
+      return `${mins}m`
+    }
+    setLabel(calc())
+    const id = setInterval(() => setLabel(calc()), 60_000)
+    return () => clearInterval(id)
+  }, [departure])
+
+  return (
+    <>
+      <div className="flex w-full items-center gap-1.5">
+        <div className="flex-1 h-px bg-[#3A3A3C]" />
+        <svg className="w-5 h-5 text-gray-500 shrink-0 rotate-90" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z" />
+        </svg>
+        <div className="flex-1 h-px bg-[#3A3A3C]" />
+      </div>
+      <p className="text-gray-600 text-xs">{fmtDate(departure)}</p>
+      {label && (
+        <p className="text-gray-400 text-[10px] font-medium tabular-nums">Departs in {label}</p>
+      )}
+    </>
+  )
+}
+
+function deriveStatus(status: string, departureTime: Date | string, arrivalTime: Date | string): string {
+  if (TERMINAL_STATUSES.has(status) || status === "cancelled") return status
+  const now = Date.now()
+  if (now >= new Date(arrivalTime).getTime()) return "landed"
+  if (now >= new Date(departureTime).getTime()) return "active"
+  return status
+}
+
 export default function FlightCard({ flight, journeyId }: { flight: Flight; journeyId?: string }) {
   const router = useRouter()
-  const s = STATUS[(flight.status as StatusKey) ?? "unknown"] ?? STATUS.unknown
-  const showProgress = flight.status === "active" || flight.status === "scheduled"
+  const [liveStatus, setLiveStatus] = useState(flight.status)
+  const [liveDelay, setLiveDelay] = useState(flight.delay)
+
+  const derived = deriveStatus(liveStatus, flight.departureTime, flight.arrivalTime)
+  const s = STATUS[(derived as StatusKey) ?? "unknown"] ?? STATUS.unknown
+
+  useEffect(() => {
+    if (!journeyId || TERMINAL_STATUSES.has(liveStatus)) return
+
+    async function refresh() {
+      try {
+        const res = await fetch(
+          `/api/journeys/${journeyId}/flights/${flight.id}/refresh`,
+          { method: "POST" }
+        )
+        if (res.ok) {
+          const data = await res.json()
+          setLiveStatus(data.status)
+          setLiveDelay(data.delay)
+        }
+      } catch { /* ignore network errors */ }
+    }
+
+    refresh()
+    const id = setInterval(refresh, 180_000)
+    return () => clearInterval(id)
+  }, [flight.id, liveStatus, journeyId])
+
+  const showProgress = derived === "active"
+  const actualDep = liveDelay ? new Date(new Date(flight.departureTime).getTime() + liveDelay * 60_000) : null
+  const actualArr = liveDelay ? new Date(new Date(flight.arrivalTime).getTime() + liveDelay * 60_000) : null
+  const aircraftReg: string | null = (() => {
+    try { return flight.rawData ? (JSON.parse(flight.rawData) as { aircraft?: { registration?: string } }).aircraft?.registration ?? null : null }
+    catch { return null }
+  })()
   const [deleting, setDeleting] = useState(false)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   async function handleDelete() {
-    if (!confirm(`Remove ${flight.flightNumber} from this journey?`)) return
     setDeleting(true)
-    await fetch(`/api/journeys/${journeyId}/flights/${flight.id}`, { method: "DELETE" })
-    router.refresh()
+    const res = await fetch(`/api/journeys/${journeyId}/flights/${flight.id}`, { method: "DELETE" })
+    if (res.ok) {
+      window.location.reload()
+    } else {
+      setDeleting(false)
+    }
   }
 
   return (
@@ -114,7 +199,7 @@ export default function FlightCard({ flight, journeyId }: { flight: Flight; jour
           </span>
           {journeyId && (
             <button
-              onClick={handleDelete}
+              onClick={() => setConfirmingDelete(true)}
               disabled={deleting}
               className="text-gray-600 hover:text-red-400 transition disabled:opacity-40"
               aria-label="Remove flight"
@@ -130,15 +215,24 @@ export default function FlightCard({ flight, journeyId }: { flight: Flight; jour
       <div className="flex items-center gap-4">
         <div className="text-center shrink-0">
           <p className="text-2xl font-bold text-white leading-tight">{flight.origin}</p>
-          <p className="text-gray-400 text-sm font-mono">{fmt(flight.departureTime)}</p>
+          {actualDep && (derived === "landed" || derived === "active") ? (
+            <>
+              <p className="text-gray-600 text-xs font-mono line-through">{fmt(flight.departureTime)}</p>
+              <p className="text-gray-400 text-sm font-mono">{fmt(actualDep)}</p>
+            </>
+          ) : (
+            <p className="text-gray-400 text-sm font-mono">{fmt(flight.departureTime)}</p>
+          )}
           {flight.originCity && (
             <p className="text-gray-600 text-xs truncate max-w-[70px]">{flight.originCity}</p>
           )}
         </div>
 
         <div className="flex-1 flex flex-col items-center gap-1 min-w-0">
-          {showProgress ? (
-            <FlightProgressBar departure={flight.departureTime} arrival={flight.arrivalTime} />
+          {derived === "active" ? (
+            <FlightProgressBar departure={actualDep ?? flight.departureTime} arrival={actualArr ?? flight.arrivalTime} />
+          ) : derived === "scheduled" ? (
+            <DepartureCountdown departure={flight.departureTime} />
           ) : (
             <>
               <div className="flex w-full items-center gap-1.5">
@@ -153,40 +247,99 @@ export default function FlightCard({ flight, journeyId }: { flight: Flight; jour
                 <div className="flex-1 h-px bg-[#3A3A3C]" />
               </div>
               <p className="text-gray-600 text-xs">{fmtDate(flight.departureTime)}</p>
+              {derived === "landed" && (
+                liveDelay && liveDelay > 0
+                  ? <p className="text-red-400 text-[10px] font-medium">+{liveDelay} min late</p>
+                  : liveDelay && liveDelay < 0
+                    ? <p className="text-green-400 text-[10px] font-medium">{Math.abs(liveDelay)} min early</p>
+                    : <p className="text-gray-500 text-[10px] font-medium">Landed on time</p>
+              )}
             </>
           )}
-          {flight.delay && flight.delay > 0 && (
-            <p className="text-amber-400 text-xs font-medium">+{flight.delay}m</p>
+          {derived !== "landed" && liveDelay && liveDelay > 0 && (
+            <p className="text-amber-400 text-xs font-medium">+{liveDelay}m</p>
           )}
         </div>
 
         <div className="text-center shrink-0">
           <p className="text-2xl font-bold text-white leading-tight">{flight.destination}</p>
-          <p className="text-gray-400 text-sm font-mono">{fmt(flight.arrivalTime)}</p>
+          {actualArr && (derived === "landed" || derived === "active") ? (
+            <>
+              <p className="text-gray-600 text-xs font-mono line-through">{fmt(flight.arrivalTime)}</p>
+              <p className="text-gray-400 text-sm font-mono">{fmt(actualArr)}</p>
+            </>
+          ) : (
+            <p className="text-gray-400 text-sm font-mono">{fmt(flight.arrivalTime)}</p>
+          )}
           {flight.destinationCity && (
             <p className="text-gray-600 text-xs truncate max-w-[70px]">{flight.destinationCity}</p>
           )}
         </div>
       </div>
 
-      {(flight.terminal || flight.gate || flight.aircraft) && (
+      {derived === "active" && (
+        <div className="mt-3 pt-3 border-t border-[#2C2C2E]">
+          <a
+            href={`https://www.flightradar24.com/${flight.flightNumber}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 w-full py-2 rounded-xl bg-[#2C2C2E] hover:bg-[#3A3A3C] text-blue-400 text-xs font-semibold transition"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            Track live on Flightradar24
+          </a>
+        </div>
+      )}
+
+      {(journeyId ? (flight.terminal || flight.gate || flight.aircraft) : flight.aircraft) && (
         <div className="mt-3 pt-3 border-t border-[#2C2C2E] flex gap-4 text-xs text-gray-500">
-          {flight.terminal && (
+          {journeyId && flight.terminal && (
             <span>
               Terminal <span className="text-gray-300 font-medium">{flight.terminal}</span>
             </span>
           )}
-          {flight.gate && (
+          {journeyId && flight.gate && (
             <span>
               Gate <span className="text-gray-300 font-medium">{flight.gate}</span>
             </span>
           )}
           {flight.aircraft && (
-            <span className="ml-auto text-gray-600">{flight.aircraft}</span>
+            <span className="ml-auto text-gray-600">
+              {flight.aircraft}{aircraftReg ? ` · ${aircraftReg}` : ""}
+            </span>
           )}
         </div>
       )}
 
+      {confirmingDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-[#1C1C1E] rounded-2xl p-5 border border-[#2C2C2E] shadow-xl">
+            <h2 className="text-white font-semibold text-base mb-1">Remove flight?</h2>
+            <p className="text-gray-400 text-sm mb-5">
+              <span className="text-white font-medium">{flight.flightNumber}</span>
+              {flight.airline ? ` · ${flight.airline}` : ""} will be removed from this journey.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex-1 bg-red-600 hover:bg-red-500 text-white rounded-xl py-2.5 text-sm font-semibold transition disabled:opacity-50"
+              >
+                {deleting ? "Removing…" : "Remove"}
+              </button>
+              <button
+                onClick={() => setConfirmingDelete(false)}
+                disabled={deleting}
+                className="flex-1 bg-[#2C2C2E] hover:bg-[#3A3A3C] text-gray-300 rounded-xl py-2.5 text-sm font-semibold transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

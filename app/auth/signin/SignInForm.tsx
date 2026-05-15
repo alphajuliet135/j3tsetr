@@ -82,7 +82,7 @@ function SignInFormInner({ registrationEnabled }: { registrationEnabled: boolean
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !username.trim() || !password.trim()}
             className="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white font-semibold rounded-xl py-3 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Signing in…" : "Sign In"}
