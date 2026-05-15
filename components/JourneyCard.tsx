@@ -5,7 +5,7 @@ type JourneyWithCount = Journey & { _count: { flights: number } }
 
 export default function JourneyCard({ journey }: { journey: JourneyWithCount }) {
   return (
-    <Link href={`/journeys/${journey.id}`}>
+    <Link href={`/journeys/${journey.id}`} className="block">
       <div className="bg-[#1C1C1E] rounded-2xl p-4 border border-[#2C2C2E] active:scale-[0.98] transition-transform">
         <div className="flex justify-between items-start">
           <div className="flex-1 min-w-0">

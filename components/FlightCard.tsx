@@ -42,16 +42,29 @@ function flightProgress(departure: Date | string, arrival: Date | string): numbe
 type StatusKey = keyof typeof STATUS
 
 function FlightProgressBar({ departure, arrival }: { departure: Date | string; arrival: Date | string }) {
-  const [pct, setPct] = useState(() => flightProgress(departure, arrival))
+  const [pct, setPct] = useState(0)
+  const [timeLeft, setTimeLeft] = useState<string | null>(null)
 
   useEffect(() => {
-    const id = setInterval(() => setPct(flightProgress(departure, arrival)), 30_000)
+    function update() {
+      setPct(flightProgress(departure, arrival))
+      const diff = new Date(arrival).getTime() - Date.now()
+      if (diff > 0) {
+        const h = Math.floor(diff / 3_600_000)
+        const m = Math.floor((diff % 3_600_000) / 60_000)
+        setTimeLeft(h > 0 ? `${h}h ${m}m` : `${m}m`)
+      } else {
+        setTimeLeft(null)
+      }
+    }
+    update()
+    const id = setInterval(update, 30_000)
     return () => clearInterval(id)
   }, [departure, arrival])
 
   return (
-    <div className="mt-3 pt-3 border-t border-[#2C2C2E]">
-      <div className="relative h-1 bg-[#3A3A3C] rounded-full overflow-visible">
+    <>
+      <div className="relative w-full h-1 bg-[#3A3A3C] rounded-full overflow-visible">
         <div
           className="absolute inset-y-0 left-0 bg-blue-500 rounded-full transition-all duration-1000"
           style={{ width: `${pct}%` }}
@@ -60,17 +73,16 @@ function FlightProgressBar({ departure, arrival }: { departure: Date | string; a
           className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 transition-all duration-1000"
           style={{ left: `${pct}%` }}
         >
-          <svg className="w-4 h-4 text-blue-400 rotate-90" fill="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 text-blue-400 rotate-90" fill="currentColor" viewBox="0 0 24 24">
             <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z" />
           </svg>
         </div>
       </div>
-      <div className="flex justify-between mt-1.5 text-[10px] text-gray-600">
-        <span>{fmt(departure)}</span>
-        <span className="text-blue-400">{pct}%</span>
-        <span>{fmt(arrival)}</span>
-      </div>
-    </div>
+      <p className="text-gray-600 text-xs mt-3">{fmtDate(departure)}</p>
+      <p className="text-blue-400 text-[10px] font-medium tabular-nums">
+        {timeLeft ? `${timeLeft} · ${pct}%` : `${pct}%`}
+      </p>
+    </>
   )
 }
 
@@ -125,21 +137,27 @@ export default function FlightCard({ flight, journeyId }: { flight: Flight; jour
         </div>
 
         <div className="flex-1 flex flex-col items-center gap-1 min-w-0">
-          <div className="flex w-full items-center gap-1.5">
-            <div className="flex-1 h-px bg-[#3A3A3C]" />
-            <svg
-              className="w-5 h-5 text-gray-500 shrink-0 rotate-90"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z" />
-            </svg>
-            <div className="flex-1 h-px bg-[#3A3A3C]" />
-          </div>
-          <p className="text-gray-600 text-xs">{fmtDate(flight.departureTime)}</p>
-          {flight.delay && flight.delay > 0 ? (
+          {showProgress ? (
+            <FlightProgressBar departure={flight.departureTime} arrival={flight.arrivalTime} />
+          ) : (
+            <>
+              <div className="flex w-full items-center gap-1.5">
+                <div className="flex-1 h-px bg-[#3A3A3C]" />
+                <svg
+                  className="w-5 h-5 text-gray-500 shrink-0 rotate-90"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z" />
+                </svg>
+                <div className="flex-1 h-px bg-[#3A3A3C]" />
+              </div>
+              <p className="text-gray-600 text-xs">{fmtDate(flight.departureTime)}</p>
+            </>
+          )}
+          {flight.delay && flight.delay > 0 && (
             <p className="text-amber-400 text-xs font-medium">+{flight.delay}m</p>
-          ) : null}
+          )}
         </div>
 
         <div className="text-center shrink-0">
@@ -169,9 +187,6 @@ export default function FlightCard({ flight, journeyId }: { flight: Flight; jour
         </div>
       )}
 
-      {showProgress && (
-        <FlightProgressBar departure={flight.departureTime} arrival={flight.arrivalTime} />
-      )}
     </div>
   )
 }

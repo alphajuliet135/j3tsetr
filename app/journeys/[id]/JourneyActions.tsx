@@ -21,6 +21,26 @@ export default function JourneyActions({
   const [passwordSaving, setPasswordSaving] = useState(false)
   const [copied, setCopied] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [nameInput, setNameInput] = useState(journey.name)
+  const [descInput, setDescInput] = useState(journey.description ?? "")
+  const [editSaving, setEditSaving] = useState(false)
+
+  async function saveEdit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!nameInput.trim()) return
+    setEditSaving(true)
+    const res = await fetch(`/api/journeys/${journey.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: nameInput.trim(), description: descInput.trim() || null }),
+    })
+    setEditSaving(false)
+    if (res.ok) {
+      setEditing(false)
+      router.refresh()
+    }
+  }
 
   async function toggleShare() {
     const res = await fetch(`/api/journeys/${journey.id}`, {
@@ -100,22 +120,31 @@ export default function JourneyActions({
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
         </Link>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl font-bold text-white truncate">{journey.name}</h1>
-          {journey.description && (
-            <p className="text-gray-500 text-sm mt-0.5">{journey.description}</p>
-          )}
-        </div>
-        <button
-          onClick={handleDelete}
-          disabled={deleting}
-          className="text-gray-600 hover:text-red-400 transition"
-          aria-label="Delete journey"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-bold text-white truncate">{journey.name}</h1>
+            {journey.description && (
+              <p className="text-gray-500 text-sm mt-0.5">{journey.description}</p>
+            )}
+          </div>
+          <button
+            onClick={() => { setNameInput(journey.name); setDescInput(journey.description ?? ""); setEditing(true) }}
+            className="text-gray-600 hover:text-gray-300 transition shrink-0"
+            aria-label="Edit journey"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="text-gray-600 hover:text-red-400 transition disabled:opacity-40 shrink-0"
+            aria-label="Delete journey"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
       </div>
 
       <div className="bg-[#1C1C1E] rounded-2xl p-4 border border-[#2C2C2E] space-y-3">
@@ -221,6 +250,46 @@ export default function JourneyActions({
           </button>
         </div>
       </div>
+
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-[#1C1C1E] rounded-2xl p-5 border border-[#2C2C2E] shadow-xl">
+            <h2 className="text-white font-semibold text-base mb-4">Edit Journey</h2>
+            <form onSubmit={saveEdit} className="flex flex-col gap-3">
+              <input
+                autoFocus
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                required
+                placeholder="Journey name"
+                className="w-full bg-[#111111] border border-[#3A3A3C] rounded-xl px-3 py-2.5 text-white text-sm font-semibold placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+              />
+              <input
+                value={descInput}
+                onChange={(e) => setDescInput(e.target.value)}
+                placeholder="Description (optional)"
+                className="w-full bg-[#111111] border border-[#3A3A3C] rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
+              />
+              <div className="flex gap-2 mt-1">
+                <button
+                  type="submit"
+                  disabled={editSaving}
+                  className="flex-1 bg-blue-600 hover:bg-blue-500 text-white rounded-xl py-2.5 text-sm font-semibold transition disabled:opacity-50"
+                >
+                  {editSaving ? "Saving…" : "Save"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEditing(false); setNameInput(journey.name); setDescInput(journey.description ?? "") }}
+                  className="flex-1 bg-[#2C2C2E] hover:bg-[#3A3A3C] text-gray-300 rounded-xl py-2.5 text-sm font-semibold transition"
+                >
+                  Discard
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

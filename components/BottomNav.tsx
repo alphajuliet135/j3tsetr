@@ -9,8 +9,9 @@ const navItems = [
     label: "Journeys",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="w-6 h-6">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 10l1.5 5 1.5-2.5 1.5 2.5L15 10" />
+        <rect x="2" y="8" width="20" height="13" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8 8V6a2 2 0 012-2h4a2 2 0 012 2v2" />
+        <line x1="2" y1="13" x2="22" y2="13" strokeLinecap="round" />
       </svg>
     ),
   },

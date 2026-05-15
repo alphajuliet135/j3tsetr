@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
+import { requireUser } from "@/lib/session"
 import { prisma } from "@/lib/db"
 
 type Ctx = { params: Promise<{ id: string }> }
 
 export async function GET(_req: NextRequest, { params }: Ctx) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const user = await requireUser()
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
   const journey = await prisma.journey.findFirst({
-    where: { id, userId: session.user.id },
+    where: { id, userId: user.id },
     include: { flights: { orderBy: { departureTime: "asc" } } },
   })
 
@@ -20,15 +19,15 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const user = await requireUser()
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
   const body = await req.json()
   const { name, description, isShared, autoDelete } = body
 
   const journey = await prisma.journey.findFirst({
-    where: { id, userId: session.user.id },
+    where: { id, userId: user.id },
   })
   if (!journey) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
@@ -46,12 +45,12 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Ctx) {
-  const session = await getServerSession(authOptions)
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const user = await requireUser()
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
   const journey = await prisma.journey.findFirst({
-    where: { id, userId: session.user.id },
+    where: { id, userId: user.id },
   })
   if (!journey) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
