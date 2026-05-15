@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { cookies } from "next/headers"
 import { createHmac } from "crypto"
 import { prisma } from "@/lib/db"
@@ -7,6 +8,12 @@ import BreakCard from "@/components/BreakCard"
 import PasswordGate from "./PasswordGate"
 
 type Props = { params: Promise<{ shareToken: string }> }
+
+function fmtLayover(ms: number): string {
+  const h = Math.floor(ms / 3_600_000)
+  const m = Math.floor((ms % 3_600_000) / 60_000)
+  return h > 0 ? `${h}h ${m}m` : `${m}m`
+}
 
 function signToken(shareToken: string): string {
   return createHmac("sha256", process.env.NEXTAUTH_SECRET ?? "dev-secret")
@@ -65,6 +72,50 @@ export default async function PublicSharePage({ params }: Props) {
     })),
   ].sort((a, b) => a.sortKey - b.sortKey)
 
+  const timelineElements: ReactNode[] = []
+  let lastDate = ""
+  for (let i = 0; i < timeline.length; i++) {
+    const item = timeline[i]
+
+    if (i > 0) {
+      const prev = timeline[i - 1]
+      if (prev.type === "flight" && item.type === "flight" && prev.data.destination === item.data.origin) {
+        const layoverMs = new Date(item.data.departureTime).getTime() - new Date(prev.data.arrivalTime).getTime()
+        if (layoverMs > 0 && layoverMs <= 12 * 3_600_000) {
+          timelineElements.push(
+            <div key={`layover-${i}`} className="flex items-center gap-2 px-1">
+              <div className="flex-1 h-px bg-[#2C2C2E]" />
+              <span className="text-gray-500 text-xs font-medium tracking-wide">
+                Layover at {prev.data.destination} · {fmtLayover(layoverMs)}
+              </span>
+              <div className="flex-1 h-px bg-[#2C2C2E]" />
+            </div>
+          )
+        }
+      }
+    }
+
+    const dateStr = new Date(item.sortKey).toLocaleDateString("en-GB", {
+      weekday: "short", day: "numeric", month: "short", year: "numeric",
+    })
+    if (dateStr !== lastDate) {
+      lastDate = dateStr
+      timelineElements.push(
+        <p key={`date-${dateStr}`} className="text-gray-400 text-sm font-semibold pt-2 first:pt-0">
+          {dateStr}
+        </p>
+      )
+    }
+
+    timelineElements.push(
+      item.type === "flight" ? (
+        <FlightCard key={item.data.id} flight={item.data} />
+      ) : (
+        <BreakCard key={item.data.id} stayBreak={item.data} journeyId={journey.id} readonly />
+      )
+    )
+  }
+
   return (
     <div className="min-h-screen bg-[#111111] px-4 py-8">
       <div className="max-w-lg mx-auto">
@@ -86,13 +137,7 @@ export default async function PublicSharePage({ params }: Props) {
           </div>
         ) : (
           <div className="space-y-3">
-            {timeline.map((item) =>
-              item.type === "flight" ? (
-                <FlightCard key={item.data.id} flight={item.data} />
-              ) : (
-                <BreakCard key={item.data.id} stayBreak={item.data} journeyId={journey.id} readonly />
-              )
-            )}
+            {timelineElements}
           </div>
         )}
 

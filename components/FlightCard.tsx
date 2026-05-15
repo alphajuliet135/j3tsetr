@@ -52,7 +52,9 @@ function FlightProgressBar({ departure, arrival }: { departure: Date | string; a
       if (diff > 0) {
         const h = Math.floor(diff / 3_600_000)
         const m = Math.floor((diff % 3_600_000) / 60_000)
-        setTimeLeft(h > 0 ? `${h}h ${m}m` : `${m}m`)
+        const hPart = h > 0 ? `${h} ${h === 1 ? "hour" : "hours"}` : ""
+        const mPart = `${m} ${m === 1 ? "minute" : "minutes"}`
+        setTimeLeft(`${hPart ? `${hPart} ` : ""}${mPart} left`)
       } else {
         setTimeLeft(null)
       }
@@ -155,6 +157,12 @@ export default function FlightCard({ flight, journeyId }: { flight: Flight; jour
     return () => clearInterval(id)
   }, [flight.id, flight.status, journeyId])
   const showProgress = derived === "active"
+  const actualDep = flight.delay ? new Date(new Date(flight.departureTime).getTime() + flight.delay * 60_000) : null
+  const actualArr = flight.delay ? new Date(new Date(flight.arrivalTime).getTime() + flight.delay * 60_000) : null
+  const aircraftReg: string | null = (() => {
+    try { return flight.rawData ? (JSON.parse(flight.rawData) as { aircraft?: { registration?: string } }).aircraft?.registration ?? null : null }
+    catch { return null }
+  })()
   const [deleting, setDeleting] = useState(false)
 
   async function handleDelete() {
@@ -195,10 +203,10 @@ export default function FlightCard({ flight, journeyId }: { flight: Flight; jour
       <div className="flex items-center gap-4">
         <div className="text-center shrink-0">
           <p className="text-2xl font-bold text-white leading-tight">{flight.origin}</p>
-          {derived === "landed" && flight.delay ? (
+          {actualDep && (derived === "landed" || derived === "active") ? (
             <>
               <p className="text-gray-600 text-xs font-mono line-through">{fmt(flight.departureTime)}</p>
-              <p className="text-gray-400 text-sm font-mono">{fmt(new Date(new Date(flight.departureTime).getTime() + flight.delay * 60_000))}</p>
+              <p className="text-gray-400 text-sm font-mono">{fmt(actualDep)}</p>
             </>
           ) : (
             <p className="text-gray-400 text-sm font-mono">{fmt(flight.departureTime)}</p>
@@ -210,7 +218,7 @@ export default function FlightCard({ flight, journeyId }: { flight: Flight; jour
 
         <div className="flex-1 flex flex-col items-center gap-1 min-w-0">
           {derived === "active" ? (
-            <FlightProgressBar departure={flight.departureTime} arrival={flight.arrivalTime} />
+            <FlightProgressBar departure={actualDep ?? flight.departureTime} arrival={actualArr ?? flight.arrivalTime} />
           ) : derived === "scheduled" ? (
             <DepartureCountdown departure={flight.departureTime} />
           ) : (
@@ -243,10 +251,10 @@ export default function FlightCard({ flight, journeyId }: { flight: Flight; jour
 
         <div className="text-center shrink-0">
           <p className="text-2xl font-bold text-white leading-tight">{flight.destination}</p>
-          {derived === "landed" && flight.delay ? (
+          {actualArr && (derived === "landed" || derived === "active") ? (
             <>
               <p className="text-gray-600 text-xs font-mono line-through">{fmt(flight.arrivalTime)}</p>
-              <p className="text-gray-400 text-sm font-mono">{fmt(new Date(new Date(flight.arrivalTime).getTime() + flight.delay * 60_000))}</p>
+              <p className="text-gray-400 text-sm font-mono">{fmt(actualArr)}</p>
             </>
           ) : (
             <p className="text-gray-400 text-sm font-mono">{fmt(flight.arrivalTime)}</p>
@@ -257,20 +265,38 @@ export default function FlightCard({ flight, journeyId }: { flight: Flight; jour
         </div>
       </div>
 
-      {(flight.terminal || flight.gate || flight.aircraft) && (
+      {derived === "active" && (
+        <div className="mt-3 pt-3 border-t border-[#2C2C2E]">
+          <a
+            href={`https://www.flightradar24.com/${flight.flightNumber}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 w-full py-2 rounded-xl bg-[#2C2C2E] hover:bg-[#3A3A3C] text-blue-400 text-xs font-semibold transition"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            Track live on Flightradar24
+          </a>
+        </div>
+      )}
+
+      {(journeyId ? (flight.terminal || flight.gate || flight.aircraft) : flight.aircraft) && (
         <div className="mt-3 pt-3 border-t border-[#2C2C2E] flex gap-4 text-xs text-gray-500">
-          {flight.terminal && (
+          {journeyId && flight.terminal && (
             <span>
               Terminal <span className="text-gray-300 font-medium">{flight.terminal}</span>
             </span>
           )}
-          {flight.gate && (
+          {journeyId && flight.gate && (
             <span>
               Gate <span className="text-gray-300 font-medium">{flight.gate}</span>
             </span>
           )}
           {flight.aircraft && (
-            <span className="ml-auto text-gray-600">{flight.aircraft}</span>
+            <span className="ml-auto text-gray-600">
+              {flight.aircraft}{aircraftReg ? ` · ${aircraftReg}` : ""}
+            </span>
           )}
         </div>
       )}
